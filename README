@@ -1,0 +1,108 @@
+
+[Person 1: GUI]
+        ↓
+[Person 2: pub]
+        ↓
+[Person 2: outsourcer]
+        ↓
+[Person 3: buffer]
+        ↓
+[Person 3: worker threads]
+        ↓
+[Person 2: sub]
+        ↓
+[Person 1: GUI display]
+
+
+PERSON 1 – GUI + Coordinator (Boss) - harini 
+
+Responsibilities:
+
+Connect GUI to backend (buttons → actions)
+
+Load .tsp file from URL (NOT local file)
+
+Parse coordinates into a list of cities
+
+Split work into chunks (ex: 0–500, 500–1000, etc.)
+
+Send tasks to workers through MQTT (using pub)
+
+Receive results and pick the best path
+
+Display final path, total distance, and time on GUI
+
+Classes:
+
+Main
+
+Panel
+
+ParseFile
+
+Coordinator (boss logic that sends tasks & collects results)
+
+
+
+
+
+PERSON 2 – Networking + Distributed System (MQTT) - Euclid 
+
+Responsibilities:
+
+Set up MQTT communication between machines
+
+Implement publisher and subscriber
+
+Handle sending tasks and receiving results
+
+Implement outsourcer (controls worker execution on each machine)
+
+Make sure ONLY URL + task info is sent (no file transfer)
+
+Ensure all machines can connect and communicate properly
+
+Classes:
+
+Pub
+
+Sub
+
+Outsourcer (Runnable)
+
+MQTTClientManager / message handler
+
+
+
+PERSON 3 – Algorithm + Multithreading + Synchronization - Giselle
+
+
+Responsibilities:
+
+Implement Nearest Neighbor for Travelling Salesman Problem
+
+Compute Euclidean distance between cities
+
+Build worker threads to run computations in parallel
+
+Use multithreading (ExecutorService or threads)
+
+Implement synchronization (REQUIRED):
+
+Producer–Consumer OR
+
+Locks / Semaphores / Conditions
+
+Create a thread-safe buffer (shared task queue)
+
+Ensure no race conditions
+
+Classes:
+
+NearestNeighbors
+
+Worker (Runnable)
+
+Buffer (thread-safe queue)
+
+Task / Result (data objects)
