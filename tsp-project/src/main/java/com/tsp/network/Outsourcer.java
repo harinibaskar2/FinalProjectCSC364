@@ -1,16 +1,16 @@
 package com.tsp.network;
 
-import com.tsp.core.Worker;
+import com.tsp.core.Buffer;
 import com.tsp.model.Task;
 
 public class Outsourcer implements Runnable {
 
     private final Task task;
-    private final Worker worker;
+    private final Buffer buffer;
 
-    public Outsourcer(Task task, Worker worker) {
+    public Outsourcer(Task task, Buffer buffer) {
         this.task = task;
-        this.worker = worker;
+        this.buffer = buffer;
     }
 
     @Override
@@ -20,11 +20,20 @@ public class Outsourcer implements Runnable {
             return;
         }
 
-        if (worker == null) {
-            System.out.println("Outsourcer: worker is null.");
+        if (buffer == null) {
+            System.out.println("Outsourcer: buffer is null.");
             return;
         }
 
-        worker.processTask(task);
+        try {
+            buffer.put(task); // place task in buffer for worker threads to get
+
+            System.out.println("Queued task: " +
+                task.getStartIndex() + " -> " + task.getEndIndex());
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
     }
 }

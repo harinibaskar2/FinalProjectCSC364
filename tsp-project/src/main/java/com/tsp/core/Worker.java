@@ -3,34 +3,47 @@ package com.tsp.core;
 import com.tsp.model.Result;
 import com.tsp.model.Task;
 import com.tsp.network.MQTTClientManager;
+import java.util.List;
 
-public class Worker {
+public class Worker implements Runnable {
 
-    private MQTTClientManager mqtt;
-    private String workerId;
+    private final MQTTClientManager mqtt;
+    private final Buffer buffer;
+    private final int workerNum;
 
-    public Worker(String workerId) {
-        this.workerId = workerId;
-        String broker = "tcp://test.mosquitto.org:1883";
-        mqtt = new MQTTClientManager(broker, workerId, null);
-
-        // Subscribe to tasks from Coordinator
-        mqtt.subscribeTasks(this::processTask);
+    public Worker(Buffer buffer, MQTTClientManager mqtt, int workerNum) {
+        this.buffer = buffer;
+        this.mqtt = mqtt;
+        this.workerNum = workerNum;
     }
 
-    public void processTask(Task task) {
-        if (task == null || task.getCities() == null || task.getCities().isEmpty()) {
-            return;
-        }
+    @Override
+    public void run() {
+        try {
+            while (true) {
+                Task task = buffer.take(); // mqtt puts tasks in the buffer workers grab them from there
+                if (task == null) {
+                    continue;
+                }
+                if (task.isStopTask()) {
+                    System.out.println("Worker: " + workerNum + " is exiting");
+                    return;
+                }
+                List<Integer> tour = NearestNeighbors.solve(task.getCities(), 0);
+                double length = NearestNeighbors.length(task.getCities(), tour);
 
-        java.util.List<Integer> tour = NearestNeighbors.solve(task.getCities(), 0);
-        double length = NearestNeighbors.length(task.getCities(), tour);
+                // worker threads handle results instead of WorkerMain
+                Result result = new Result(tour, length);
+                mqtt.publishResult(result);
 
-        Result result = new Result(tour, length);
-        mqtt.publishResult(result);
-
-        System.out.println(workerId + " finished task: "
+                System.out.println(workerNum + " finished task: "
                 + task.getStartIndex() + "-" + task.getEndIndex()
                 + " | length: " + length);
+
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
+
 }

@@ -1,9 +1,11 @@
 package com.tsp.model;
 
 import java.awt.Graphics2D;
+import java.io.Serializable;;
 
 
-public class City {
+public class City implements Serializable {
+  private static final long serialVersionUID = 1L;
 
   private final int id;
   private final double x;
