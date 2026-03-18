@@ -15,7 +15,7 @@ public class Worker {
         mqtt = new MQTTClientManager(broker, workerId, null);
 
         // Subscribe to tasks from Coordinator
-        mqtt.subscribeTasks(this::executeTask);
+        mqtt.subscribeTasks(this::processTask);
     }
 
     public void processTask(Task task) {
