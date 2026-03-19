@@ -11,7 +11,7 @@ import com.tsp.network.MQTTClientManager;
 public class Coordinator {
 
     private List<City> cities = new ArrayList<>();
-    private int taskSize = 500;
+    private int taskSize = 50;
     private MQTTClientManager mqtt;
     private List<Integer> bestTour = new ArrayList<>();
     private double bestLength = Double.POSITIVE_INFINITY;
@@ -19,7 +19,7 @@ public class Coordinator {
     public Coordinator() {
         // connect to MQTT broker
         mqtt = new MQTTClientManager(
-                "tcp://test.mosquitto.org:1883",
+                "tcp://broker.hivemq.com:1883",
                 "Coordinator-" + System.currentTimeMillis(),
                 this::receiveResult // callback for results
         );
@@ -28,13 +28,14 @@ public class Coordinator {
     public void setCities(List<City> cities) {
         this.cities = cities;
     }
-
+    
     public void distributeTasks() {
         int n = cities.size();
         for (int start = 0; start < n; start += taskSize) {
             int end = Math.min(start + taskSize, n);
             Task task = new Task(start, end, cities.subList(start, end));
             mqtt.publishTask(task);
+            System.out.println("Published task: " + start + " -> " + end);
         }
     }
 

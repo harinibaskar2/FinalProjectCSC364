@@ -3,31 +3,46 @@ package com.tsp.core;
 import com.tsp.model.Result;
 import com.tsp.model.Task;
 import com.tsp.network.MQTTClientManager;
+import java.util.List;
 
-public class Worker {
+public class Worker implements Runnable {
 
-    private MQTTClientManager mqtt;
+    private final MQTTClientManager mqtt;
+    private final Buffer buffer;
+    private final int workerNum;
 
-    public Worker(String workerId) {
-        String broker = "tcp://test.mosquitto.org:1883";
-        mqtt = new MQTTClientManager(broker, workerId, null);
-
-        // Subscribe to tasks from Coordinator
-        mqtt.subscribeTasks(this::processTask);
+    public Worker(Buffer buffer, MQTTClientManager mqtt, int workerNum) {
+        this.buffer = buffer;
+        this.mqtt = mqtt;
+        this.workerNum = workerNum;
     }
 
-    private void processTask(Task task) {
-        if (task == null || task.getCities().isEmpty()) return;
+    @Override
+    public void run() {
+        try {
+            while (true) {
+                Task task = buffer.take();
 
-        // Compute tour for this task
-        java.util.List<Integer> tour = NearestNeighbors.solve(task.getCities(), 0);
-        double length = NearestNeighbors.length(task.getCities(), tour);
+                if (task.isStopTask()) {
+                    System.out.println("Worker: " + workerNum + " is exiting");
+                    return;
+                }
 
-        // Publish result back
-        Result result = new Result(tour, length);
-        mqtt.publishResult(result);
+                List<Integer> tour = NearestNeighbors.solve(task.getCities(), 0);
+                double length = NearestNeighbors.length(task.getCities(), tour);
 
-        System.out.println("Worker finished task: " + task.getStartIndex() + "-" + task.getEndIndex() + " | length: " + length);
+                Result result = new Result(task.getStartIndex(), task.getEndIndex(), tour, length);
+
+                mqtt.publishResult(result);
+
+                System.out.println("[Worker " + workerNum + "] finished task: "
+                        + task.getStartIndex() + "-" + task.getEndIndex()
+                        + " | length: " + length);
+
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
+
 }
-
