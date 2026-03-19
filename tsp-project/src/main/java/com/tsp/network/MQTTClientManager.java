@@ -53,24 +53,42 @@ public class MQTTClientManager {
         try {
             client = new MqttClient(brokerUrl, clientId);
             MqttConnectOptions options = new MqttConnectOptions();
-            options.setCleanSession(true);
+            options.setCleanSession(false); // <- keep session between reconnects
             client.connect(options);
-
+    
+            // Wait until fully connected
+            while (!client.isConnected()) {
+                Thread.sleep(100);
+            }
+    
             // If Coordinator: subscribe to results topic
             if (resultListener != null) {
-                client.subscribe(resultTopic, (topic, message) -> {
-                    try {
-                        Result result = deserializeResult(message.getPayload());
-                        resultListener.onResultReceived(result);
-                    } catch (IOException | ClassNotFoundException e) {
-                        e.printStackTrace();
-                    }
-                });
+                try {
+                    client.subscribe(resultTopic, (topic, message) -> {
+                        try {
+                            Result result = deserializeResult(message.getPayload());
+                            resultListener.onResultReceived(result);
+                        } catch (IOException | ClassNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                } catch (MqttException e) {
+                    System.out.println("Initial subscription failed, retrying in 500ms...");
+                    Thread.sleep(500);
+                    client.subscribe(resultTopic, (topic, message) -> {
+                        try {
+                            Result result = deserializeResult(message.getPayload());
+                            resultListener.onResultReceived(result);
+                        } catch (IOException | ClassNotFoundException ex) {
+                            ex.printStackTrace();
+                        }
+                    });
+                }
             }
-
+    
             System.out.println("MQTT connected: " + clientId);
-
-        } catch (MqttException e) {
+    
+        } catch (MqttException | InterruptedException e) {
             e.printStackTrace();
         }
     }

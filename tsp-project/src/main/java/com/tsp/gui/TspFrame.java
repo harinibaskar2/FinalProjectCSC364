@@ -1,23 +1,31 @@
 package com.tsp.gui;
 
-import javax.swing.*;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.io.File;
-import java.util.List;
-import com.tsp.Coordinator;
-import com.tsp.model.City;
-import com.tsp.core.NearestNeighbors;
-import com.tsp.ParseFile;
-
 import java.util.ArrayList;
+import java.util.List;
 
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
-
+import com.tsp.Coordinator;
+import com.tsp.ParseFile;
+import com.tsp.core.NearestNeighbors;
+import com.tsp.model.City;
 
 /**
- * Updated GUI for loading TSPLIB .tsp files from local files or URLs,
- * displaying the cities, and integrating with the Coordinator for distributed TSP.
+ * GUI for Distributed TSP Solver
  */
 public class TspFrame extends JFrame {
 
@@ -28,10 +36,12 @@ public class TspFrame extends JFrame {
     private List<City> cities = new ArrayList<>();
     private List<Integer> tour = new ArrayList<>();
 
-    private final JTextField urlField = new JTextField("Enter TSP file URL here...", 40);
+    private final JTextField urlField = new JTextField("Enter TSP file URL here...", 25);
 
     public TspFrame() {
         super("Distributed TSP Solver");
+
+        // Log area
         log.setEditable(false);
         log.setBackground(new Color(200, 255, 220));
 
@@ -40,14 +50,27 @@ public class TspFrame extends JFrame {
         JButton loadUrlBtn = new JButton("Load from URL");
         JButton solveBtn = new JButton("Nearest Neighbor (Local)");
         JButton clearBtn = new JButton("Clear Tour");
+        JButton distributeBtn = new JButton("Distribute Tasks");
+        JButton drawBestBtn = new JButton("Draw Best Tour");
 
-        // Top panel
-        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        top.add(loadFileBtn);
-        top.add(urlField);
-        top.add(loadUrlBtn);
-        top.add(solveBtn);
-        top.add(clearBtn);
+        // Top panel with 2 rows
+        JPanel top = new JPanel(new GridLayout(2, 1));
+
+        // Row 1: Load buttons + URL
+        JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        row1.add(loadFileBtn);
+        row1.add(loadUrlBtn);
+        row1.add(urlField);
+
+        // Row 2: Solve, Clear, Distribute, Draw
+        JPanel row2 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        row2.add(solveBtn);
+        row2.add(clearBtn);
+        row2.add(distributeBtn);
+        row2.add(drawBestBtn);
+
+        top.add(row1);
+        top.add(row2);
 
         // Layout
         setLayout(new BorderLayout());
@@ -55,7 +78,6 @@ public class TspFrame extends JFrame {
         add(mapPanel, BorderLayout.CENTER);
         add(new JScrollPane(log), BorderLayout.SOUTH);
 
-        // Default messages
         log.append("Ready: Load a TSPLIB file (local or URL).\n");
 
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -67,6 +89,8 @@ public class TspFrame extends JFrame {
         loadUrlBtn.addActionListener(e -> onLoadURL());
         solveBtn.addActionListener(e -> onSolveLocal());
         clearBtn.addActionListener(e -> onClear());
+        distributeBtn.addActionListener(e -> onDistribute());
+        drawBestBtn.addActionListener(e -> onDrawBest());
     }
 
     /** Load cities from a local file */
@@ -122,9 +146,44 @@ public class TspFrame extends JFrame {
 
     /** Clear tour */
     private void onClear() {
-        tour = new ArrayList<>();
+        tour.clear();
         mapPanel.setTour(tour);
-        log.append("\nTour cleared.\n");
+
+        // Clear coordinator best tour
+        synchronized (coordinator.getBestTour()) {
+            coordinator.getBestTour().clear();
+        }
+
+        log.append("\nTour cleared. Ready for new file or URL.\n");
+        mapPanel.repaint();
+    }
+
+    /** Send tasks to workers via Coordinator */
+    private void onDistribute() {
+        if (cities == null || cities.isEmpty()) {
+            log.append("\nLoad a file or URL first.\n");
+            return;
+        }
+
+        log.append("\nDistributing tasks to workers...\n");
+        new Thread(() -> {
+            coordinator.distributeTasks();
+            SwingUtilities.invokeLater(() ->
+                log.append("All tasks have been published.\n")
+            );
+        }).start();
+    }
+
+    /** Draw the best tour collected so far from workers */
+    private void onDrawBest() {
+        List<Integer> bestTour = coordinator.getBestTour();
+        if (bestTour == null || bestTour.isEmpty()) {
+            log.append("\nNo tour received yet from workers.\n");
+            return;
+        }
+        mapPanel.setTour(bestTour);
+        double length = coordinator.getBestLength();
+        log.append("\nBest tour drawn. Length: " + String.format("%.3f", length) + "\n");
     }
 
     /** Main */
